@@ -4,6 +4,7 @@ import os
 import math
 import librosa
 import soundfile as sf
+import numpy as np
 from pydub import AudioSegment
 from pydub.utils import mediainfo
 
@@ -42,7 +43,6 @@ for label in labels:
                     end_sec_segment = AudioSegment.silent(duration=durend)  # duration in milliseconds
 
                     song = AudioSegment.from_wav(in_wav)
-
                     # Add above two audio segments
                     final_song = beg_sec_segment + song + end_sec_segment
                     try:
@@ -54,7 +54,7 @@ for label in labels:
 
                 else:
                     print("Duration is greater than 1: " + out_wav)
-                    print("Duration before: " + str(duration))
+
                     y, sr = librosa.load(in_wav)
 
                     # Trim the beginning and ending silence
@@ -62,12 +62,25 @@ for label in labels:
 
                     # Duration of the signal in seconds
                     duration = librosa.get_duration(y=yt, sr=sr)
+                    if duration < 1:
+                        print("Duration after trim : " + str(duration))
+                        excess_duration = (1 - duration) / 2
+                        silence_size = round(excess_duration * sr)
+                        # create silence audio segment of begging
+                        beg_sec_segment = np.zeros(silence_size)  # duration in milliseconds
+                        # create of silence audio segment of end
+                        end_sec_segment = np.zeros(silence_size)  # duration in milliseconds
 
-                    # Excessive duration at the start and the end of the signal that should be removed
-                    excess_duration = (duration - 1) / 2
-                    starting_index = math.floor(excess_duration * sr)
-                    ending_index = starting_index + sr
-                    # Signal wth duration of 1 sec
-                    yt = yt[starting_index:ending_index]
+                        yt = np.concatenate((beg_sec_segment, yt, end_sec_segment))
+                        sf.write(out_wav, yt, sr)
+                    else:
+                        print("Duration before: " + str(duration))
+                        # Excessive duration at the start and the end of the signal that should be removed
+                        excess_duration = (duration - 1) / 2
+                        starting_index = math.floor(excess_duration * sr)
+                        ending_index = starting_index + sr
 
-                    sf.write(out_wav,yt,sr)
+                        # Signal wth duration of 1 sec
+                        yt = yt[starting_index:ending_index]
+                        print(yt.shape)
+                        sf.write(out_wav, yt, sr)
